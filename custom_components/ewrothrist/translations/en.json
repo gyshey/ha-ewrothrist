@@ -1,0 +1,49 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EW Rothrist customer portal",
+        "description": "Credentials for the EWR customer portal (ewrothrist.ch).",
+        "data": {
+          "email": "Email address",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate",
+        "description": "The portal rejected the login. Please re-enter your password.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Login failed - wrong email or password.",
+      "cannot_connect": "Portal unreachable.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This account is already configured.",
+      "reauth_successful": "Credentials updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Polling settings",
+        "data": {
+          "scan_interval_minutes": "Polling interval (minutes)",
+          "backfill_days": "History on first import (days)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_power": { "name": "Last power" },
+      "data_until": { "name": "Data up to" },
+      "energy_today": { "name": "Consumption today (partial)" },
+      "energy_yesterday": { "name": "Consumption yesterday" }
+    }
+  }
+}

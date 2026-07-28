@@ -1,0 +1,49 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EW Rothrist Kundenportal",
+        "description": "Zugangsdaten des EWR-Kundenportals (ewrothrist.ch).",
+        "data": {
+          "email": "E-Mail-Adresse",
+          "password": "Passwort"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Neu anmelden",
+        "description": "Das Portal hat die Anmeldung abgelehnt. Bitte Passwort erneut eingeben.",
+        "data": {
+          "password": "Passwort"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Anmeldung fehlgeschlagen - E-Mail oder Passwort falsch.",
+      "cannot_connect": "Portal nicht erreichbar.",
+      "unknown": "Unerwarteter Fehler."
+    },
+    "abort": {
+      "already_configured": "Dieses Konto ist bereits eingerichtet.",
+      "reauth_successful": "Anmeldung aktualisiert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Abruf-Einstellungen",
+        "data": {
+          "scan_interval_minutes": "Abrufintervall (Minuten)",
+          "backfill_days": "Historie beim Erst-Import (Tage)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_power": { "name": "Letzte Leistung" },
+      "data_until": { "name": "Daten aktuell bis" },
+      "energy_today": { "name": "Verbrauch heute (Teildaten)" },
+      "energy_yesterday": { "name": "Verbrauch gestern" }
+    }
+  }
+}
