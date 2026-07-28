@@ -39,6 +39,7 @@ from zoneinfo import ZoneInfo
 import aiohttp
 
 from .const import (
+    CSV_URL,
     LASTGANG_URL,
     LOGIN_URL,
     MAX_DAYS_PER_REQUEST,
@@ -209,10 +210,9 @@ class EwrClient:
         """
         match = _CSV_LINK_RE.search(html)
         if match:
-            url = f"{BASE_URL}/de/formWork/csvTable.php"
             try:
                 async with self._session.get(
-                    url,
+                    CSV_URL,
                     params={"i": match.group(1)},
                     timeout=aiohttp.ClientTimeout(total=60),
                 ) as resp:

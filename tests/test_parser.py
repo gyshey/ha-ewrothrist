@@ -13,7 +13,9 @@ from zoneinfo import ZoneInfo
 # Stub aiohttp so api.py imports without the dependency.
 aiohttp = types.ModuleType("aiohttp")
 aiohttp.ClientSession = object
-aiohttp.ClientError = Exception
+class _ClientError(Exception):
+    pass
+aiohttp.ClientError = _ClientError
 aiohttp.ClientTimeout = lambda **kw: None
 aiohttp.FormData = object
 sys.modules["aiohttp"] = aiohttp
@@ -157,5 +159,69 @@ assert api._MAINTENANCE_RE.search(maint), "maintenance page must be detected"
 assert not api._MAINTENANCE_RE.search(build([("27.07.2026 00:00", "0.48")]))
 assert issubclass(api.EwrMaintenanceError, api.EwrConnectionError)
 print("maintenance detection OK")
+
+# --- fetch path (exercises _async_slots_from, not just the parsers) ------
+# Regression guard: a NameError shipped here once, because the parsers were
+# tested in isolation while nothing ever ran the code that fetches the CSV.
+import asyncio
+
+
+class _FakeResponse:
+    def __init__(self, status, text):
+        self.status, self._text = status, text
+
+    async def text(self):
+        return self._text
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class _FakeSession:
+    """Records requests and replays a canned response."""
+
+    def __init__(self, status=200, text=""):
+        self.status, self.text_body, self.calls = status, text, []
+
+    def get(self, url, **kw):
+        self.calls.append((url, kw.get("params")))
+        if self.status == "boom":
+            raise aiohttp.ClientError("connection reset")
+        return _FakeResponse(self.status, self.text_body)
+
+
+page = ("<a href='/de/formWork/csvTable.php?i=abc123'>Als CSV exportieren</a>"
+        + build([("27.07.2026 00:00", "9.99")]))
+real_csv = csv_of([("27.07.2026 00:00", "0.48"), ("27.07.2026 00:15", "0.49")])
+
+# CSV available -> CSV wins over the (deliberately different) table values
+client._session = _FakeSession(200, real_csv)
+slots = asyncio.run(client._async_slots_from(page))
+assert [s.power_kw for s in slots] == [0.48, 0.49], slots
+assert client._session.calls[0][0].endswith("/de/formWork/csvTable.php"), \
+    client._session.calls
+assert client._session.calls[0][1] == {"i": "abc123"}, client._session.calls
+print("fetch path uses CSV OK")
+
+# CSV 500 -> falls back to the table
+client._session = _FakeSession(500, "server error")
+slots = asyncio.run(client._async_slots_from(page))
+assert [s.power_kw for s in slots] == [9.99], slots
+print("fetch path falls back on HTTP error OK")
+
+# CSV connection error -> falls back to the table
+client._session = _FakeSession("boom")
+slots = asyncio.run(client._async_slots_from(page))
+assert [s.power_kw for s in slots] == [9.99], slots
+print("fetch path falls back on connection error OK")
+
+# no CSV link at all -> table, and no request attempted
+client._session = _FakeSession(200, real_csv)
+slots = asyncio.run(client._async_slots_from(build([("27.07.2026 00:00", "1.23")])))
+assert [s.power_kw for s in slots] == [1.23] and client._session.calls == []
+print("fetch path without CSV link OK")
 
 print("ALL PARSER TESTS PASSED")

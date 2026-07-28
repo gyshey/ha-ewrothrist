@@ -5,6 +5,8 @@ DOMAIN = "ewrothrist"
 BASE_URL = "https://www.ewrothrist.ch"
 LOGIN_URL = f"{BASE_URL}/de/services/login.php"
 LASTGANG_URL = f"{BASE_URL}/de/services/lastgang.php"
+# "Als CSV exportieren" on the rendered load-profile page
+CSV_URL = f"{BASE_URL}/de/formWork/csvTable.php"
 
 CONF_BACKFILL_DAYS = "backfill_days"
 CONF_SCAN_INTERVAL_MINUTES = "scan_interval_minutes"
