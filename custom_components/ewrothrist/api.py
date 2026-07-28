@@ -17,10 +17,15 @@ Quirks discovered by inspection (2026-07):
   table markup (see _async_slots_from).
 - A maintenance page is served as a normal 200 with the logged-in sidebar,
   so it has to be detected explicitly.
-- DST end: the portal delivered only 96 slots for 26.10.2025, a 25-hour
-  day, and no repeated 02:00-02:45 block. One hour is therefore simply
-  absent from the portal's own data once a year. The fold handling below
-  stays in place in case a meter ever does report the repeat.
+- Timestamps are real local wall-clock times, confirmed at both DST
+  switches (verified 2026-07 against the live portal):
+    * spring 29.03.2026, a 23-hour day -> 92 slots, 02:00-02:45 correctly
+      absent (01:45 is followed by 03:00);
+    * autumn 26.10.2025, a 25-hour day -> 96 slots, the repeated
+      02:00-02:45 block is *not* reported.
+  So the mapping to Europe/Zurich is sound, and once a year one hour is
+  simply missing from the portal's own data. The fold handling below stays
+  in place in case a meter ever does report the repeat.
 """
 
 from __future__ import annotations
