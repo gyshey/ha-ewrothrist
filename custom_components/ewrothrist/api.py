@@ -45,6 +45,12 @@ _METER_RE = re.compile(
     r"<select[^>]*id='zaehler'.*?</select>", re.DOTALL
 )
 _OPTION_RE = re.compile(r"<option[^>]*value='([^']+)'")
+# The rendered page offers "Als CSV exportieren"; the id is a per-render
+# uniqid() the server maps back to the table it just built for this session.
+_CSV_LINK_RE = re.compile(r"csvTable\.php\?i=([A-Za-z0-9]+)")
+_CSV_ROW_RE = re.compile(
+    r'^"(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2})";"([0-9.,-]*)"'
+)
 
 
 class EwrAuthError(Exception):
@@ -157,7 +163,7 @@ class EwrClient:
                 "datum_bis": chunk_end.strftime("%d.%m.%Y"),
             }
             html = await self._async_get_lastgang(params)
-            chunk = self._parse_table(html)
+            chunk = await self._async_slots_from(html)
             _LOGGER.debug(
                 "Fetched %s slots for %s..%s", len(chunk), chunk_start, chunk_end
             )
@@ -166,18 +172,58 @@ class EwrClient:
         slots.sort(key=lambda s: s.start)
         return slots
 
+    async def _async_slots_from(self, html: str) -> list[SlotValue]:
+        """Prefer the portal's own CSV export, fall back to the HTML table.
+
+        The rendered page carries an "Als CSV exportieren" link whose id the
+        server maps back to the table it just built. That export is a stable,
+        machine-readable contract; scraping the table markup is the fallback
+        for the case where the link is missing or the download fails.
+        """
+        match = _CSV_LINK_RE.search(html)
+        if match:
+            url = f"{BASE_URL}/de/formWork/csvTable.php"
+            try:
+                async with self._session.get(
+                    url,
+                    params={"i": match.group(1)},
+                    timeout=aiohttp.ClientTimeout(total=60),
+                ) as resp:
+                    if resp.status == 200:
+                        slots = self._parse_csv(await resp.text())
+                        if slots:
+                            return slots
+                    _LOGGER.debug("CSV export returned status %s", resp.status)
+            except (aiohttp.ClientError, TimeoutError) as err:
+                _LOGGER.debug("CSV export failed (%s), parsing HTML instead", err)
+        else:
+            _LOGGER.debug("No CSV export link on page, parsing HTML instead")
+        return self._parse_table(html)
+
+    def _parse_csv(self, csv_text: str) -> list[SlotValue]:
+        """Parse the portal's CSV export (semicolon separated, quoted)."""
+        rows = []
+        for line in csv_text.splitlines():
+            m = _CSV_ROW_RE.match(line.strip())
+            if m:
+                rows.append(m.groups())
+        return self._to_slots(rows)
+
     def _parse_table(self, html: str) -> list[SlotValue]:
         """Parse the server-rendered table into slot values."""
+        return self._to_slots(m.groups() for m in _ROW_RE.finditer(html))
+
+    def _to_slots(self, rows) -> list[SlotValue]:
+        """Turn (dd, mm, yyyy, HH, MM, value) tuples into slot values."""
         slots: list[SlotValue] = []
         seen: set[datetime] = set()
-        for m in _ROW_RE.finditer(html):
-            day, month, year, hour, minute = (int(x) for x in m.groups()[:5])
-            raw = m.group(6).replace(",", ".").strip()
+        for day, month, year, hour, minute, raw in rows:
+            raw = raw.replace(",", ".").strip()
             try:
                 value = float(raw) if raw not in ("", "-") else 0.0
             except ValueError:
                 continue
-            naive = datetime(year, month, day, hour, minute)
+            naive = datetime(int(year), int(month), int(day), int(hour), int(minute))
             # DST end (autumn): the 02:00-02:45 slots appear twice; the
             # second occurrence is the post-transition (fold=1) hour.
             fold = 1 if naive in seen else 0

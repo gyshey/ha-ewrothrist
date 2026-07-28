@@ -84,10 +84,17 @@ Ergänzend zur Statistik (informativ — die Daten hinken einige Stunden):
 
 ## Wie es funktioniert
 
-Das Portal hat keine API. Die Integration meldet sich wie ein Browser an
-(`login.php`, Multipart-Formular) und liest die serverseitig gerenderte
-Tabelle von `lastgang.php` (`zeitraum=datum`, bis 31 Tage pro Anfrage in
-15-Minuten-Auflösung).
+Das Portal hat keine öffentliche API. Die Integration meldet sich wie ein
+Browser an (`login.php`, Multipart-Formular) und ruft `lastgang.php` auf
+(`zeitraum=datum`, bis 31 Tage pro Anfrage in 15-Minuten-Auflösung).
+
+Die Werte holt sie dann über den **CSV-Export des Portals**
+(`formWork/csvTable.php`) — dieselbe Datei, die der „Als CSV
+exportieren"-Knopf liefert. Das ist ein stabiles, maschinenlesbares Format;
+gegenüber dem HTML-Markup, das die Integration nur noch als Rückfallebene
+parst, ist es deutlich weniger anfällig für Layout-Änderungen (und die
+Nutzdaten sind rund siebenmal kleiner). Der Export ist an die gerade
+gerenderte Tabelle gebunden, deshalb bleibt der Seitenaufruf davor nötig.
 
 Eigenheiten, die dabei berücksichtigt werden:
 
@@ -105,9 +112,17 @@ Eigenheiten, die dabei berücksichtigt werden:
 
 ## Mitwirken
 
-Fehlerberichte und Pull Requests sind willkommen. Da das Portal reines HTML
-liefert, kann eine Layout-Änderung seitens der EW Rothrist das Parsing
-brechen — Issues mit einem (anonymisierten) HTML-Ausschnitt helfen dann sehr.
+Fehlerberichte und Pull Requests sind willkommen. Da die Integration am
+Portal hängt, kann eine Änderung seitens der EW Rothrist das Auslesen
+brechen — Issues mit einem (anonymisierten) Ausschnitt der CSV- oder
+HTML-Antwort helfen dann sehr.
+
+Die Parsing-Logik lässt sich ohne Home Assistant, ohne Netzwerk und ohne
+Abhängigkeiten testen:
+
+```bash
+python3 tests/test_parser.py
+```
 
 ## Lizenz
 
