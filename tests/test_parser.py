@@ -147,4 +147,15 @@ m = api._CSV_LINK_RE.search(link_html)
 assert m and m.group(1) == "6a6879847ad42", m
 print("CSV link regex OK")
 
+# --- maintenance page detection -----------------------------------------
+# Real shape: HTTP 200, logged-in sidebar present, no data.
+maint = ("<html><body><a href='/de/services/logout.php'>Logout</a>"
+         "<h1>Wartungsarbeiten</h1><p>Der gewuenschte Dienst steht momentan "
+         "aufgrund von Wartungsarbeiten nicht zur Verfuegung.</p></body></html>")
+assert "logout.php" in maint, "sanity: page must look logged in"
+assert api._MAINTENANCE_RE.search(maint), "maintenance page must be detected"
+assert not api._MAINTENANCE_RE.search(build([("27.07.2026 00:00", "0.48")]))
+assert issubclass(api.EwrMaintenanceError, api.EwrConnectionError)
+print("maintenance detection OK")
+
 print("ALL PARSER TESTS PASSED")

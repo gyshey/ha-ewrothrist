@@ -13,6 +13,14 @@ Quirks discovered by inspection (2026-07):
   been delivered yet are rendered as 0.00 (indistinguishable from a true
   zero, callers must trim the trailing zero run).
 - Date range requests up to 31 days keep the 15-minute resolution.
+- The page carries a CSV export link; that export is preferred over the
+  table markup (see _async_slots_from).
+- A maintenance page is served as a normal 200 with the logged-in sidebar,
+  so it has to be detected explicitly.
+- DST end: the portal delivered only 96 slots for 26.10.2025, a 25-hour
+  day, and no repeated 02:00-02:45 block. One hour is therefore simply
+  absent from the portal's own data once a year. The fold handling below
+  stays in place in case a meter ever does report the repeat.
 """
 
 from __future__ import annotations
@@ -48,6 +56,9 @@ _OPTION_RE = re.compile(r"<option[^>]*value='([^']+)'")
 # The rendered page offers "Als CSV exportieren"; the id is a per-render
 # uniqid() the server maps back to the table it just built for this session.
 _CSV_LINK_RE = re.compile(r"csvTable\.php\?i=([A-Za-z0-9]+)")
+# Observed 2026-07: the portal answers with a 200 "Wartungsarbeiten" page
+# (services/error.php) that still renders the logged-in sidebar.
+_MAINTENANCE_RE = re.compile(r"Wartungsarbeiten", re.I)
 _CSV_ROW_RE = re.compile(
     r'^"(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2})";"([0-9.,-]*)"'
 )
@@ -59,6 +70,10 @@ class EwrAuthError(Exception):
 
 class EwrConnectionError(Exception):
     """Portal not reachable or returned an unexpected response."""
+
+
+class EwrMaintenanceError(EwrConnectionError):
+    """Portal served its maintenance page instead of the data."""
 
 
 @dataclass(slots=True)
@@ -121,6 +136,13 @@ class EwrClient:
             except (aiohttp.ClientError, TimeoutError) as err:
                 raise EwrConnectionError(f"Portal request failed: {err}") from err
             if "login.php" not in final_url and "logout.php" in text:
+                # The maintenance page is a normal 200 and still carries the
+                # logged-in sidebar, so it passes the session check above.
+                # Treat it as "portal down", not as "no consumption".
+                if "error.php" in final_url or _MAINTENANCE_RE.search(text):
+                    raise EwrMaintenanceError(
+                        "Portal is in maintenance; consumption data unavailable"
+                    )
                 return text
             if attempt == 1:
                 _LOGGER.debug("Session expired, logging in again")
